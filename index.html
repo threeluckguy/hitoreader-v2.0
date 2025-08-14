@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hitomi 링크 생성 · 미리보기</title>
+<style>
+  :root {
+    --bg-color: black;
+    --text-color: white;
+    --input-bg: white;
+    --input-text: black;
+    --btn-primary: #4f8cff;
+    --panel: #111;
+    --border: #333;
+    --muted: #bbb;
+    --success: #18c69c;
+    --danger: #ff5b5b;
+  }
+  body.light {
+    --bg-color: white;
+    --text-color: black;
+    --input-bg: #f0f0f0;
+    --input-text: black;
+    --btn-primary: #2563eb;
+    --panel: #fafafa;
+    --border: #e5e7eb;
+    --muted: #555;
+  }
+  body {
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Apple SD Gothic Neo, sans-serif;
+    margin: 0;
+  }
+  header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+  }
+  .theme-toggle {
+    cursor: pointer;
+    padding: 6px 10px;
+    border: 1px solid var(--text-color);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-color);
+    font-weight: 700;
+  }
+  .container { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  .preview-frame {
+    margin: 16px auto;
+    width: 100%; max-width: 560px; height: 340px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    position: relative; border-radius: 8px; overflow: hidden;
+  }
+  iframe { width: 100%; height: 100%; border: none; }
+  .preview-hint {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    color: var(--muted); padding: 10px; text-align: center;
+  }
+  .preview-enlarge {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.55); color: white; border: none; border-radius: 6px;
+    cursor: pointer; padding: 6px 10px; font-size: 14px;
+  }
+  .btn-row { margin: 10px 0; text-align: center; }
+  button {
+    margin: 5px; padding: 10px 14px;
+    border: none; border-radius: 6px; cursor: pointer; font-weight: 700;
+  }
+  .primary { background: var(--btn-primary); color: white; }
+  input[type="text"] {
+    padding: 12px 14px; width: 100%; max-width: 480px;
+    border-radius: 8px; border: 1px solid var(--border);
+    font-size: 16px; background: var(--input-bg); color: var(--input-text);
+  }
+  .error { color: var(--danger); margin-top: 6px; min-height: 22px; text-align: center; }
+  .row-center { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .links {
+    display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap;
+    margin: 8px 0 14px;
+  }
+  .link-pill {
+    padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-color); text-decoration: none; font-size: 14px;
+  }
+  /* Overlay */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    display: none; justify-content: center; align-items: center; z-index: 1000;
+  }
+  .overlay iframe { width: 92%; height: 92%; border: none; }
+  .overlay .close-circle {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 44px; height: 44px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7);
+    color: white; font-size: 20px; border: 1px solid rgba(255,255,255,0.25);
+    cursor: pointer;
+  }
+  .overlay .close-circle:hover { background: rgba(0,0,0,0.8); }
+  .nav-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 48px; height: 64px; border-radius: 10px;
+    background: rgba(0,0,0,0.7); color: white; font-size: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.25); cursor: pointer;
+    user-select: none;
+  }
+  .nav-arrow:hover { background: rgba(0,0,0,0.85); }
+  .nav-left { left: 12px; }
+  .nav-right { right: 12px; }
+  .page-indicator {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    color: #ddd; font-size: 14px; background: rgba(0,0,0,0.5);
+    padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
+  }
+</style>
+</head>
+<body>
+<header>
+  <button id="themeToggle" class="theme-toggle">라이트 모드</button>
+</header>
+
+<div class="container">
+  <div class="preview-frame">
+    <iframe id="preview"></iframe>
+    <div id="hint" class="preview-hint">번호를 입력하면 미리보기가 여기에 표시됩니다.</div>
+    <button id="enlargeBtn" class="preview-enlarge">미리보기</button>
+  </div>
+  <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:4px;">미리보기로 열기 추천</p>
+
+  <div class="btn-row">
+    <button id="open" class="primary" disabled>접속하기</button>
+    <button id="share" disabled>공유</button>
+    <button id="copy" disabled>링크 복사</button>
+  </div>
+
+  <div class="row-center">
+    <input id="number" type="text" inputmode="numeric" placeholder="번호 입력 (예: 123456)">
+  </div>
+
+  <div class="links" id="linksRow" style="display:none;">
+    <a id="readerLink" class="link-pill" target="_blank" rel="noopener">Reader 링크</a>
+    <a id="galleryLink" class="link-pill" target="_blank" rel="noopener">Gallery 링크</a>
+  </div>
+
+  <div id="err" class="error"></div>
+</div>
+
+<div class="overlay" id="overlay" aria-hidden="true">
+  <button id="closeOverlay" class="close-circle" aria-label="닫기">✕</button>
+  <div id="navLeft" class="nav-arrow nav-left" aria-label="이전 페이지">◀</div>
+  <div id="navRight" class="nav-arrow nav-right" aria-label="다음 페이지">▶</div>
+  <div id="pageIndicator" class="page-indicator" aria-hidden="true">#1</div>
+  <iframe id="overlayFrame" title="미리보기"></iframe>
+</div>
+
+<script>
+const input = document.getElementById('number');
+const preview = document.getElementById('preview');
+const hint = document.getElementById('hint');
+const openBtn = document.getElementById('open');
+const shareBtn = document.getElementById('share');
+const copyBtn = document.getElementById('copy');
+const themeToggle = document.getElementById('themeToggle');
+const enlargeBtn = document.getElementById('enlargeBtn');
+const overlay = document.getElementById('overlay');
+const overlayFrame = document.getElementById('overlayFrame');
+const closeOverlay = document.getElementById('closeOverlay');
+const navLeft = document.getElementById('navLeft');
+const navRight = document.getElementById('navRight');
+const pageIndicator = document.getElementById('pageIndicator');
+const linksRow = document.getElementById('linksRow');
+const readerLink = document.getElementById('readerLink');
+const galleryLink = document.getElementById('galleryLink');
+const err = document.getElementById('err');
+
+const BASE_READER = 'https://hitomi.la/reader/';
+const BASE_GALL = 'https://hitomi.la/galleries/';
+const SUFFIX = '.html#';
+const THEME_KEY = 'hitomi_theme';
+
+let overlayId = null;
+let overlayPage = 1;
+let keyHandlerBound = false;
+
+function sanitizeDigits(v){ return (v||'').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0)-0xFF10+48)).replace(/[^0-9]/g,''); }
+function urlReader(id, page=1){ return BASE_READER + id + SUFFIX + page; }
+function urlGallery(id){ return BASE_GALL + id + '.html'; }
+function setTheme(mode){ document.body.classList.toggle('light', mode==='light'); themeToggle.textContent = mode==='light' ? '다크 모드' : '라이트 모드'; localStorage.setItem(THEME_KEY, mode); }
+themeToggle.addEventListener('click',()=>{ const c = localStorage.getItem(THEME_KEY)||'dark'; setTheme(c==='dark'?'light':'dark'); });
+setTheme(localStorage.getItem(THEME_KEY)||'dark');
+
+function updateOverlaySrc(){
+  if (!overlayId) return;
+  overlayFrame.src = urlReader(overlayId, overlayPage);
+  pageIndicator.textContent = '#' + overlayPage;
+}
+
+function openPreview(){
+  const id = sanitizeDigits(input.value);
+  if (!id) return;
+  overlayId = id;
+  overlayPage = 1;
+  updateOverlaySrc();
+  overlay.style.display = 'flex';
+  overlay.setAttribute('aria-hidden', 'false');
+  bindKeyHandler();
+}
+function closePreview(){
+  overlay.style.display = 'none';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlayFrame.removeAttribute('src');
+  unbindKeyHandler();
+}
+
+function prevPage(){
+  if (overlayPage > 1) {
+    overlayPage -= 1;
+    updateOverlaySrc();
+  }
+}
+function nextPage(){
+  overlayPage += 1;
+    updateOverlaySrc();
+}
+
+function bindKeyHandler(){
+  if (keyHandlerBound) return;
+  window.addEventListener('keydown', keyHandler, true);
+  keyHandlerBound = true;
+}
+function unbindKeyHandler(){
+  if (!keyHandlerBound) return;
+  window.removeEventListener('keydown', keyHandler, true);
+  keyHandlerBound = false;
+}
+function keyHandler(e){
+  if (overlay.getAttribute('aria-hidden') === 'true') return;
+  if (e.key === 'ArrowLeft'){ e.preventDefault(); prevPage(); }
+  else if (e.key === 'ArrowRight'){ e.preventDefault(); nextPage(); }
+  else if (e.key === 'Escape'){ e.preventDefault(); closePreview(); }
+}
+
+enlargeBtn.addEventListener('click', openPreview);
+closeOverlay.addEventListener('click', closePreview);
+navLeft.addEventListener('click', prevPage);
+navRight.addEventListener('click', nextPage);
+
+input.addEventListener('input', triggerUpdate);
+function triggerUpdate(){
+  const id = sanitizeDigits(input.value);
+  if (input.value !== id) input.value = id;
+
+  if (!id){
+    preview.removeAttribute('src'); hint.style.display=''; openBtn.disabled=true; shareBtn.disabled=true; copyBtn.disabled=true;
+    linksRow.style.display='none';
+    err.textContent='';
+    return;
+  }
+
+  const reader = urlReader(id, 1).replace(/#\d+$/, '#1');
+  const gall = urlGallery(id);
+
+  preview.src = reader; hint.style.display='none';
+  openBtn.disabled=false; shareBtn.disabled=false; copyBtn.disabled=false;
+  linksRow.style.display='';
+  readerLink.href = reader;
+  galleryLink.href = gall;
+}
+
+openBtn.addEventListener('click', ()=>{
+  const id = sanitizeDigits(input.value); if (!id) { err.textContent='숫자를 입력하세요.'; return; }
+  window.open(urlReader(id, 1),'_blank','noopener,noreferrer');
+});
+copyBtn.addEventListener('click', ()=>{
+  const id = sanitizeDigits(input.value); if (!id) { err.textContent='숫자를 입력하세요.'; return; }
+  navigator.clipboard.writeText(urlReader(id, 1)).then(()=>{ err.style.color='var(--success)'; err.textContent='링크가 복사되었습니다.'; setTimeout(()=>{ err.textContent=''; err.style.color='var(--danger)'; }, 2000); });
+});
+shareBtn.addEventListener('click', ()=>{
+  const id = sanitizeDigits(input.value); if (!id) { err.textContent='숫자를 입력하세요.'; return; }
+  if (navigator.share){
+    navigator.share({ title: 'Hitomi 링크', url: urlReader(id, 1) });
+  } else {
+    err.textContent='이 브라우저는 공유 기능을 지원하지 않습니다.';
+  }
+});
+</script>
+</body>
+</html>
